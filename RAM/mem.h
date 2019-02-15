@@ -5,18 +5,38 @@
 #include <map>
 #include <iostream>
 
+struct ts
+{
+	int pid;
+	std::map<int, int> tablica;
+
+	ts(int p)
+	{
+		this->pid = p;
+	};
+
+	~ts() = default;;
+};
+
+struct FIFO
+{
+	int pid;
+	int strona;
+};
+
 struct proc
 {
 	int pid;
 	std::vector<int> stronice;
 	int pcb;
 
+
 	proc(int p)
 	{
 		this->pid = p;
 		this->pcb = 0;
 	};
-	~proc();
+	~proc() = default;;
 };
 
 class mem
@@ -26,8 +46,8 @@ public:
 	char ram[128];
 	bool zaj_pw[16];
 	std::list<int> zaj_ram;
-	unsigned int wolne = 16;
-	std::vector<proc*> proceski;
+	std::map<proc*,ts*> proceski;
+	std::list<FIFO> kolejka;
 
 	mem();
 	~mem();
@@ -38,6 +58,8 @@ public:
 	void wpisz_do_pw(int pid, std::string roz);
 	void wypisz_ram();
 	void wypisz_pw();
+	void wypisz_ts(int pid);
+	void wypisz_tab();
 	void wypisz_stronice(int pid);
 	int znajdz_wolna();
 	void wykonaj_krok(int pid);
@@ -78,9 +100,13 @@ mem::~mem()
 {
 	for (auto &e : proceski)
 	{
-		if (e->pid == pid)
+		if (e.first->pid == pid)
 		{
-			e->pcb++;
+			e.first->pcb++;
+			if (e.first->pcb > e.first->stronice.size())
+			{
+				usun_proces(pid);
+			}
 			return;
 		}
 		
@@ -89,21 +115,24 @@ mem::~mem()
 
  void mem::dodaj_proces(int pid, std::string roz)
  {
-	 for (auto e : proceski)
+	 for (auto &e : proceski)
 	 {
-		 if (e->pid == pid) return;
+		 if (e.first->pid == pid) return;
 	 }
 	 unsigned int rozm = roz.length();
 	 unsigned int ilosc = ceil(rozm / 16.00);
-	 if (wolne < ilosc) return;
+	 int wolne = 0;
+		for(auto e : zaj_pw) if(!e) wolne++;
+	 if ( wolne < ilosc) return;
 	 int pos = 0;
 	 proc *e = new proc(pid);
+	 ts   *a = new ts(pid);
+	
 	 bool koniec = true;
 	 while (koniec)
 	 {
 		 for (int i = 0; i < ilosc; i++)
 		 {
-			 wolne--;
 			 int t = znajdz_wolna();
 			 e->stronice.push_back(t);
 			 zaj_pw[t] = true;
@@ -122,51 +151,58 @@ mem::~mem()
 				 pos++;
 
 			 }
+			 
 		 }
  }
-	proceski.push_back(e);
+	proceski.insert(std::pair<proc*,ts*>(e,a));
 }
 
  void mem::usun_proces(int pid)
 {
 	int pos = 0;
+
 	for (auto &e : proceski)
 	{
-		if (e->pid == pid)
+		if (e.first->pid == pid)
 		{
-			for (auto i : e->stronice)
+			int st = 0;
+			for (auto i : e.first->stronice)
 			{
 				for (int j = i * 16; j < (i * 16) + 16; j++)
 				{
 					pw[j] = ' ';
 				}
 				zaj_pw[i] = false;
-				wolne++;
+				
+				st++;
 			}
-			proceski.erase(proceski.begin() + pos);
+			e.first->stronice.erase(e.first->stronice.begin(),e.first->stronice.end());
+			auto it = proceski.find(e.first);
+			proceski.erase(it);
 			return;
 		}
+	
 		pos++;
 	}
 }
 
  void mem::wpisz_do_ramu(int pid)
 {
-	int pos = 0;
 	for (auto &e : proceski)
 	{
-		if (e->pid == pid)
+		if (e.first->pid == pid)
 		{
 			int k = zaj_ram.front();
 			zaj_ram.pop_front();
+			e.second->tablica[e.first->stronice[e.first->pcb]] = k / 16;
+
 			for(int i = 0; i < 16; i++)
 			{
-				ram[i+k] = pw[(e->stronice[e->pcb])*16 + i];
-				pw[(e->stronice[e->pcb]) * 16 + i] = ' ';
+				ram[i+k] = pw[(e.first->stronice[e.first->pcb])*16 + i];
+				pw[(e.first->stronice[e.first->pcb]) * 16 + i] = ' ';
 			}
 			zaj_ram.push_back(k);
 		}
-		pos++;
 	}
 }
 
@@ -202,6 +238,8 @@ mem::~mem()
 		// ----------------------------------------------------------------------
 		// wyzwietla spod ramki
 	}
+	std::cout << std::endl; 
+	std::cout << std::endl;
 }
 
  void mem::wypisz_pw()
@@ -209,7 +247,7 @@ mem::~mem()
 	 for (int o = 0; o < 16; o++)
 	 {
 		 int addr = o * 16;
-		 std::cout << "Linia nr: " << o;
+		 std::cout << "Stronica nr: " << o;
 		 if (o >= 0)
 		 {
 			 std::cout << ", zawiera ";
@@ -236,4 +274,33 @@ mem::~mem()
 		 // ----------------------------------------------------------------------
 		 // wyzwietla spod ramki
 	 }
+	 std::cout << std::endl;
+	 std::cout << std::endl;
  }
+
+ void mem::wypisz_ts(int pid)
+{
+	for(auto &e : proceski)
+	{
+		if(e.first->pid == pid)
+		{
+			for (auto &r : e.second->tablica)
+			{
+				std::cout << "Proces: " << e.first->pid << " Stronica: " << r.first << " Rama: " << r.second << std::endl;
+			}
+		}
+	}
+}
+
+ void mem::wypisz_tab()
+{
+	for(auto &e : proceski)
+	{
+		std::cout << "Proces: " << e.first->pid << std::endl;
+		for(auto &r : e.second->tablica)
+		{
+			std::cout << "          Stronica: " << r.first << "    Rama: " << r.second << std::endl;
+		}
+		std::cout << "-------------------------------------" << std::endl;
+	}
+}
