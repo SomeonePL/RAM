@@ -89,6 +89,7 @@ inline void mem::wykonaj_krok(int pid)
 
 inline void mem::dodaj_proces(int pid, std::string roz)
 {
+
 	for (auto e : proceski)
 	{
 		if(e->pid == pid) return;
