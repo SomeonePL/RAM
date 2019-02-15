@@ -53,9 +53,9 @@ mem::mem()
 		zaj_pw[e] = false;
 	}
 
-	for (int i = 0; i < 128; i++)
+	for (int i = 0; i < 8; i++)
 	{
-		zaj_ram.push_back(i);
+		zaj_ram.push_back(i*16);
 	}
 
 }
@@ -65,7 +65,7 @@ mem::~mem()
 {
 }
 
-inline int mem::znajdz_wolna()
+ int mem::znajdz_wolna()
 {
 	for(int i = 0; i < 16; i++)
 	{
@@ -74,7 +74,7 @@ inline int mem::znajdz_wolna()
 	return  -1;
 }
 
-inline void mem::wykonaj_krok(int pid)
+ void mem::wykonaj_krok(int pid)
 {
 	for (auto &e : proceski)
 	{
@@ -87,35 +87,47 @@ inline void mem::wykonaj_krok(int pid)
 	}
 }
 
-inline void mem::dodaj_proces(int pid, std::string roz)
-{
+ void mem::dodaj_proces(int pid, std::string roz)
+ {
+	 for (auto e : proceski)
+	 {
+		 if (e->pid == pid) return;
+	 }
+	 unsigned int rozm = roz.length();
+	 unsigned int ilosc = ceil(rozm / 16.00);
+	 if (wolne < ilosc) return;
+	 int pos = 0;
+	 proc *e = new proc(pid);
+	 bool koniec = true;
+	 while (koniec)
+	 {
+		 for (int i = 0; i < ilosc; i++)
+		 {
+			 wolne--;
+			 int t = znajdz_wolna();
+			 e->stronice.push_back(t);
+			 zaj_pw[t] = true;
+			 for (int j = t * 16; j < (t * 16) + 16; j++)
+			 {
+				 if (pos >= rozm)
+				 {
+					 pw[j] = ' ';
+					 koniec = false;
+				 }
+				 else
+				 {
+					 //std::cout << roz[pos] << " ";
+					 pw[j] = roz[pos];
+				 }
+				 pos++;
 
-	for (auto e : proceski)
-	{
-		if(e->pid == pid) return;
-	}
-	unsigned int rozm = roz.length();
-	unsigned int ilosc = ceil(rozm / 16);
-	if(wolne < ilosc) return;
-	int pos = 0;
-	proc *e = new proc(pid);
-	for(int i = 0; i < ilosc; i++)
-	{
-		int t = znajdz_wolna();
-		e->stronice.push_back(t);
-		zaj_pw[t] = true;
-		for(int j = t * 16; j < (t*16)+16; j++)
-		{
-			//std::cout << roz[pos] << " ";
-			pw[j] = roz[pos];
-			pos++;
-			if (pos > rozm) return;
-		}
-	}
+			 }
+		 }
+ }
 	proceski.push_back(e);
 }
 
-inline void mem::usun_proces(int pid)
+ void mem::usun_proces(int pid)
 {
 	int pos = 0;
 	for (auto &e : proceski)
@@ -126,9 +138,10 @@ inline void mem::usun_proces(int pid)
 			{
 				for (int j = i * 16; j < (i * 16) + 16; j++)
 				{
-					pw[j] = '-';
+					pw[j] = ' ';
 				}
 				zaj_pw[i] = false;
+				wolne++;
 			}
 			proceski.erase(proceski.begin() + pos);
 			return;
@@ -137,7 +150,7 @@ inline void mem::usun_proces(int pid)
 	}
 }
 
-inline void mem::wpisz_do_ramu(int pid)
+ void mem::wpisz_do_ramu(int pid)
 {
 	int pos = 0;
 	for (auto &e : proceski)
@@ -148,8 +161,8 @@ inline void mem::wpisz_do_ramu(int pid)
 			zaj_ram.pop_front();
 			for(int i = 0; i < 16; i++)
 			{
-				ram[i*k] = pw[(e->stronice[e->pcb])*16 + i];
-				pw[(e->stronice[e->pcb]) * 16 + i] = '-';
+				ram[i+k] = pw[(e->stronice[e->pcb])*16 + i];
+				pw[(e->stronice[e->pcb]) * 16 + i] = ' ';
 			}
 			zaj_ram.push_back(k);
 		}
@@ -157,12 +170,11 @@ inline void mem::wpisz_do_ramu(int pid)
 	}
 }
 
-inline void mem::wypisz_ram()
+ void mem::wypisz_ram()
 {
-	for (int o = 0; o < 16; o++)
+	for (int o = 0; o < 8; o++)
 	{
-		int addr = 0 * 16;
-		std::string space = "        ";
+		int addr = o * 16;
 		std::cout << "Ramka nr: " << o;
 		if (o >= 0)
 		{
@@ -191,3 +203,37 @@ inline void mem::wypisz_ram()
 		// wyzwietla spod ramki
 	}
 }
+
+ void mem::wypisz_pw()
+ {
+	 for (int o = 0; o < 16; o++)
+	 {
+		 int addr = o * 16;
+		 std::cout << "Linia nr: " << o;
+		 if (o >= 0)
+		 {
+			 std::cout << ", zawiera ";
+		 }
+		 std::cout << std::endl;
+
+		 for (int i = 0; i < 16; i++)
+		 {
+			 if (addr + i < 10)
+				 printf("  %d  |", addr + i);
+			 else
+				 printf(" %3d |", addr + i);
+		 }
+		 std::cout << std::endl;
+		 // wyzwietla zawartosc RAMu
+		 addr = o * 16;
+
+		 for (int i = 0; i < 16; i++)
+		 {
+			 printf("  %c  |", pw[addr + i]);
+
+		 }
+		 std::cout << std::endl;
+		 // ----------------------------------------------------------------------
+		 // wyzwietla spod ramki
+	 }
+ }
